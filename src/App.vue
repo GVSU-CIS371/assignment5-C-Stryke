@@ -1,128 +1,180 @@
 <template>
   <div>
-    <Beverage :isIced="beverageStore.currentTemp === 'Cold'" />
+    <Beverage :isIced="currentTemp === 'Cold'" />
 
     <ul>
+      <!-- Temperature -->
       <li>
-        <template v-for="temp in beverageStore.temps" :key="temp">
+        <template v-for="temp in Temps" :key="temp">
           <label>
             <input
               type="radio"
               name="temperature"
-              :id="`r${temp}`"
+              :id="`temp-${temp}`"
               :value="temp"
-              v-model="beverageStore.currentTemp"
+              v-model="currentTemp"
             />
             {{ temp }}
           </label>
         </template>
       </li>
-    </ul>
 
-    <ul>
-      <li>
-        <template v-for="b in beverageStore.bases" :key="b.id">
+      <!-- Base -->
+      <li v-if="Base.length">
+        <template v-for="base in Base" :key="base.id">
           <label>
             <input
               type="radio"
-              name="bases"
-              :id="`r${b.id}`"
-              :value="b"
-              v-model="beverageStore.currentBase"
+              name="base"
+              :id="`base-${base.id}`"
+              :value="base.id"
+              v-model="currentBaseId"
+              @change="beverageStore.setBaseById(base.id)"
             />
-            {{ b.name }}
+            {{ base.name }}
+          </label>
+        </template>
+      </li>
+
+      <!-- Cream -->
+      <li v-if="Cream.length">
+        <template v-for="cream in Cream" :key="cream.id">
+          <label>
+            <input
+              type="radio"
+              name="cream"
+              :id="`cream-${cream.id}`"
+              :value="cream.id"
+              v-model="currentCreamId"
+              @change="beverageStore.setCreamById(cream.id)"
+            />
+            {{ cream.name }}
+          </label>
+        </template>
+      </li>
+
+      <!-- Syrup -->
+      <li v-if="Syrup.length">
+        <template v-for="syrup in Syrup" :key="syrup.id">
+          <label>
+            <input
+              type="radio"
+              name="syrup"
+              :id="`syrup-${syrup.id}`"
+              :value="syrup.id"
+              v-model="currentSyrupId"
+              @change="beverageStore.setSyrupById(syrup.id)"
+            />
+            {{ syrup.name }}
           </label>
         </template>
       </li>
     </ul>
 
-    <ul>
-      <li>
-        <template v-for="s in beverageStore.syrups" :key="s.id">
+    <!-- Actions -->
+    <div class="actions">
+      <div class="auth-box">
+        <div v-if="user">
+          <p>Signed in as: <strong>{{ user.email }}</strong></p>
+          <button @click="logoutUser">Sign Out</button>
+        </div>
+        <div v-else>
+          <button @click="loginWithGoogle">Sign-In</button>
+        </div>
+      </div>
+
+      <ul>
+        <input v-model="newName" placeholder="Name your drink" />
+        <button @click="makeBeverage" :disabled="!user">Save</button>
+        <p v-if="!user">Please sign in to save your drinks.</p>
+      </ul>
+
+      <ul class="Saved" v-if="user">
+        <template v-for="bev in savedBeverages" :key="bev.id">
           <label>
             <input
-              type="radio"
-              name="syrups"
-              :id="`r${s.id}`"
-              :value="s"
-              v-model="beverageStore.currentSyrup"
+              type="button"
+              :id="`saved-${bev.id}`"
+              :value="bev.name"
+              @click="showBeverage(bev.id)"
             />
-            {{ s.name }}
           </label>
+          <button @click="deleteBeverage(bev.id)">X</button>
         </template>
-      </li>
-    </ul>
-
-    <ul>
-      <li>
-        <template v-for="c in beverageStore.creamers" :key="c.id">
-          <label>
-            <input
-              type="radio"
-              name="creamers"
-              :id="`r${c.id}`"
-              :value="c"
-              v-model="beverageStore.currentCreamer"
-            />
-            {{ c.name }}
-          </label>
-        </template>
-      </li>
-    </ul>
-
-    <div class="auth-row">
-      <button @click="withGoogle">Sign in with Google</button>
+      </ul>
     </div>
-    <input
-      v-model="beverageStore.currentName"
-      type="text"
-      placeholder="Beverage Name"
-    />
-
-    <button @click="handleMakeBeverage">🍺 Make Beverage</button>
-
-    <p v-if="message" class="status-message">
-      {{ message }}
-    </p>
-  </div>
-
-  <div style="margin-top: 20px">
-    <template v-for="beverage in beverageStore.beverages" :key="beverage.id">
-      <input
-        type="radio"
-        :id="beverage.id"
-        :value="beverage"
-        v-model="beverageStore.currentBeverage"
-        @change="beverageStore.showBeverage()"
-      />
-      <label :for="beverage.id">{{ beverage.name }}</label>
-    </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
+import { storeToRefs } from "pinia";
 import Beverage from "./components/Beverage.vue";
 import { useBeverageStore } from "./stores/beverageStore";
+import { auth, googleProvider } from "./firebase";
+import { onAuthStateChanged, signOut, signInWithPopup } from "firebase/auth";
 
 const beverageStore = useBeverageStore();
-beverageStore.init();
 
-const message = ref("");
+const {
+  Temps,
+  Base,
+  Cream,
+  Syrup,
+  currentTemp,
+  currentBaseId,
+  currentCreamId,
+  currentSyrupId,
+  savedBeverages,
+} = storeToRefs(beverageStore);
 
-const showMessage = (txt: string) => {
-  message.value = txt;
-  setTimeout(() => {
-    message.value = "";
-  }, 5000);
+const user = ref<null | { email: string | null }>(null);
+const newName = ref("");
+const loading = ref(true);
+
+onAuthStateChanged(auth, async (firebaseUser) => {
+  if (firebaseUser) {
+    user.value = { email: firebaseUser.email };
+    await beverageStore.loadSavedBeverages();
+  } else {
+    user.value = null;
+  }
+});
+
+const loginWithGoogle = async () => {
+  try {
+    await signInWithPopup(auth, googleProvider);
+  } catch (e) {
+    console.error(e);
+  }
 };
 
-const withGoogle = async () => {};
-
-const handleMakeBeverage = () => {
-  const txt = beverageStore.makeBeverage();
-  showMessage(txt);
+const logoutUser = async () => {
+  try {
+    await signOut(auth);
+  } catch (e) {
+    console.error(e);
+  }
 };
+
+onMounted(async () => {
+  await beverageStore.loadIngredients();
+  loading.value = false;
+});
+
+function makeBeverage() {
+  if (!newName.value.trim()) return;
+  beverageStore.makeBeverage(newName.value.trim());
+  newName.value = "";
+}
+
+function showBeverage(id: string) {
+  beverageStore.showBeverage(id);
+}
+
+function deleteBeverage(id: string) {
+  beverageStore.deleteBeverage(id);
+}
 </script>
 
 <style lang="scss">
@@ -133,40 +185,17 @@ html {
   align-items: center;
   justify-content: center;
   height: 100%;
-  background-color: #6e4228;
   background: linear-gradient(to bottom, #6e4228 0%, #956f5a 100%);
 }
-
 ul {
   list-style: none;
 }
 
-.auth-row {
-  margin-top: 10px;
-  margin-bottom: 8px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.user-label {
-  color: #ffffff;
-  font-size: 0.9rem;
-}
-
-.hint {
-  margin-top: 4px;
-  color: #ffffff;
-  font-size: 0.85rem;
-}
-
-.status-message {
-  margin-top: 8px;
-  padding: 6px 10px;
-  border-radius: 4px;
-  background: #fff3cd;
-  border: 1px solid #ffeeba;
-  color: #856404;
-  font-size: 0.9rem;
+.Saved {
+  display: grid;
+  grid-template-columns:  40% 10%;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0;
 }
 </style>

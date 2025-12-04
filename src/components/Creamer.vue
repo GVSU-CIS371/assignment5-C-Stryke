@@ -1,18 +1,17 @@
 <template>
   <div class="froth">
-    <div
-      v-for=" in 5"
-      class="foam"
-      :style="{ backgroundColor: beverageStore.currentCreamer?.color }"
-    ></div>
+    <div v-for="n in 5" :key="n" class="foam" :style="{ '--Ccolor': Ccolor }"></div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { useBeverageStore } from "../stores/beverageStore";
+import { storeToRefs } from 'pinia'
+import { useBeverageStore } from '../stores/beverageStore'
 
-const beverageStore = useBeverageStore();
+const store = useBeverageStore()
+const { Ccolor } = storeToRefs(store)
 </script>
+
 <style lang="scss" scoped>
 .froth {
   overflow: visible;
@@ -25,7 +24,7 @@ const beverageStore = useBeverageStore();
 }
 .foam {
   display: block;
-  background: #e4e0d2;
+  background: var(--Ccolor);
   border-radius: 30px;
   height: 40px;
   width: 40px;
