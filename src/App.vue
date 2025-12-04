@@ -29,6 +29,7 @@
               :id="`base-${base.id}`"
               :value="base.id"
               v-model="currentBaseId"
+              @change="beverageStore.setBaseById(base.id)"
             />
             {{ base.name }}
           </label>
@@ -45,6 +46,7 @@
               :id="`cream-${cream.id}`"
               :value="cream.id"
               v-model="currentCreamId"
+              @change="beverageStore.setCreamById(cream.id)"
             />
             {{ cream.name }}
           </label>
@@ -61,6 +63,7 @@
               :id="`syrup-${syrup.id}`"
               :value="syrup.id"
               v-model="currentSyrupId"
+              @change="beverageStore.setSyrupById(syrup.id)"
             />
             {{ syrup.name }}
           </label>
@@ -70,30 +73,23 @@
 
     <!-- Actions -->
     <div class="actions">
-
       <div class="auth-box">
         <div v-if="user">
           <p>Signed in as: <strong>{{ user.email }}</strong></p>
           <button @click="logoutUser">Sign Out</button>
         </div>
-
-      <div v-else>
-        <button @click="loginWithGoogle">Sign-In</button>
+        <div v-else>
+          <button @click="loginWithGoogle">Sign-In</button>
+        </div>
       </div>
-    </div>
 
       <ul>
         <input v-model="newName" placeholder="Name your drink" />
-        <button @click="makeBeverage"
-        :disabled="!user"
-        >Save</button>
-        <p v-if="!user">
-        Please sign in to save your drinks.
-        </p>
+        <button @click="makeBeverage" :disabled="!user">Save</button>
+        <p v-if="!user">Please sign in to save your drinks.</p>
       </ul>
 
-      <ul class="Saved"
-          v-if="user">
+      <ul class="Saved" v-if="user">
         <template v-for="bev in savedBeverages" :key="bev.id">
           <label>
             <input
@@ -108,29 +104,33 @@
       </ul>
     </div>
   </div>
-
-
 </template>
-
 
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import Beverage from "./components/Beverage.vue";
-
-import { useBeverageStore } from "./stores/beverageStore";
 import { storeToRefs } from "pinia";
-
-// Computed wrappers for ID-based v-models
-import {
-  currentBaseId,
-  currentCreamId,
-  currentSyrupId,
-} from "./stores/beverageComputed";
-
+import Beverage from "./components/Beverage.vue";
+import { useBeverageStore } from "./stores/beverageStore";
 import { auth, googleProvider } from "./firebase";
 import { onAuthStateChanged, signOut, signInWithPopup } from "firebase/auth";
 
-const user = ref(null as null | { email: string | null });
+const beverageStore = useBeverageStore();
+
+const {
+  Temps,
+  Base,
+  Cream,
+  Syrup,
+  currentTemp,
+  currentBaseId,
+  currentCreamId,
+  currentSyrupId,
+  savedBeverages,
+} = storeToRefs(beverageStore);
+
+const user = ref<null | { email: string | null }>(null);
+const newName = ref("");
+const loading = ref(true);
 
 onAuthStateChanged(auth, async (firebaseUser) => {
   if (firebaseUser) {
@@ -157,33 +157,13 @@ const logoutUser = async () => {
   }
 };
 
-const beverageStore = useBeverageStore();
-
-const {
-  Temps,
-  Base,
-  Cream,
-  Syrup,
-  currentTemp,
-  savedBeverages,
-} = storeToRefs(beverageStore);
-
-
-const newName = ref("");
-const loading = ref(true);
-
-
 onMounted(async () => {
   await beverageStore.loadIngredients();
-
-  // Ingredients loaded → allow rendering
   loading.value = false;
 });
 
-
 function makeBeverage() {
   if (!newName.value.trim()) return;
-
   beverageStore.makeBeverage(newName.value.trim());
   newName.value = "";
 }
@@ -196,7 +176,6 @@ function deleteBeverage(id: string) {
   beverageStore.deleteBeverage(id);
 }
 </script>
-
 
 <style lang="scss">
 body,
@@ -219,5 +198,4 @@ ul {
   gap: 0.75rem;
   padding: 0;
 }
-
 </style>

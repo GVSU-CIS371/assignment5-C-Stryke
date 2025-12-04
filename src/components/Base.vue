@@ -1,9 +1,13 @@
 <template>
-  <div class="baseBeverage" :style="{'--Bcolor': Bcolor}"></div>
+  <div class="baseBeverage" :style="{ '--Bcolor': Bcolor }"></div>
 </template>
 
 <script setup lang="ts">
-import { Bcolor } from '../stores/beverageComputed';
+import { storeToRefs } from 'pinia'
+import { useBeverageStore } from '../stores/beverageStore'
+
+const store = useBeverageStore()
+const { Bcolor } = storeToRefs(store)
 </script>
 
 <style scoped>

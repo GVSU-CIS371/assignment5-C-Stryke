@@ -4,8 +4,11 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Scolor, Bcolor } from '../stores/beverageComputed'
+import { storeToRefs } from 'pinia'
+import { useBeverageStore } from '../stores/beverageStore'
 
+const store = useBeverageStore()
+const { Scolor, Bcolor } = storeToRefs(store)
 const SColor = computed(() =>
   Scolor.value === '#c6c6c6' ? Bcolor.value : Scolor.value
 )

@@ -38,7 +38,32 @@ export const useBeverageStore = defineStore("BeverageStore", {
     }[],
   }),
 
+  getters: {
+    // Color getters
+    Bcolor: (state) => state.currentBase?.color ?? "#ffffff",
+    Ccolor: (state) => state.currentCream?.color ?? "#ffffff",
+    Scolor: (state) => state.currentSyrup?.color ?? "#ffffff",
+
+    // Radio button getters
+    currentBaseId: (state) => state.currentBase?.id ?? null,
+    currentCreamId: (state) => state.currentCream?.id ?? null,
+    currentSyrupId: (state) => state.currentSyrup?.id ?? null,
+  },
+
   actions: {
+    // Setters for v-model replacements
+    setBaseById(id: string) {
+      this.currentBase = this.Base.find(b => b.id === id) ?? null;
+    },
+
+    setCreamById(id: string) {
+      this.currentCream = this.Cream.find(c => c.id === id) ?? null;
+    },
+
+    setSyrupById(id: string) {
+      this.currentSyrup = this.Syrup.find(s => s.id === id) ?? null;
+    },
+
     async loadIngredients() {
       console.log("Loading ingredients…");
 
@@ -85,7 +110,8 @@ export const useBeverageStore = defineStore("BeverageStore", {
         return;
       }
 
-      const id = crypto.randomUUID(); // unique drink ID
+      const id = crypto.randomUUID();
+
       const newBeverage = {
         name,
         temp: this.currentTemp,
